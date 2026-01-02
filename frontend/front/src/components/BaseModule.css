@@ -1,0 +1,53 @@
+body{
+    background-color: white;
+    color: black;
+}
+
+body.dark-mode {
+    background-color: #121212;
+    color: white;
+}
+
+.dropdown{
+    position: fixed;
+    left: -270px;
+    top: 0;
+    width: 150px;
+    height: 100%;
+    background: #2c3e50;
+    color: white;
+    transition: 0.3s;
+    padding: 60px;
+}
+
+.dropdown.open{
+    left: 0;
+}
+
+.dropdown ul{
+    list-style: none;
+    text-align: center;
+}
+
+.dropdown ul li{
+    padding: 15px;
+    text-align: center;
+}
+
+.dropdown ul li a{
+    font-family: sans-serif;
+    color: white;
+    text-decoration: none;
+}
+
+.dropdownButton{
+    position: absolute;
+    top: 15px;
+    left: 100%;
+    background: #007BFF;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 10px;
+}

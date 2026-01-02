@@ -1,0 +1,22 @@
+body{
+    background-color: white;
+    color: black;
+}
+
+body.dark-mode {
+    background-color: #121212;
+    color: white;
+}
+
+.b1 {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px;
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+.b1:hover{
+    background-color: #0056b3;
+}
