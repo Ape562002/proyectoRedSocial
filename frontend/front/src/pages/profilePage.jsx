@@ -1,11 +1,22 @@
 import DropdownMenu from "../components/Base"
 import "../components/profileModule.css"
-import { useState } from "react"
+import { useState, useEffect, useRef, use } from "react"
 
 export function Profile(){
     const [texto, setTexto] = useState('')
     const [archivo, setArchivo] = useState(null)
-    const [showModal, setShowModal] = useState(false)
+    const [posts, setPosts] = useState([])
+    const [nextUrl, setNextUrl] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const observerRef = useRef(null)
+    const hasFetched = useRef(false);
+
+    useEffect(() => {
+        if (hasFetched.current) return
+
+        hasFetched.current = true
+        loadPosts("http://127.0.0.1:8000/posts/")
+    }, [])
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -39,26 +50,50 @@ export function Profile(){
         }
     }
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
+    const loadPosts = async (url) => {
+        if (!url || loading) return;
+        setLoading(true);
 
-        if (file) {
-            const maxSize = 50 * 1024 * 1024;
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    Authorization: `Token ${localStorage.getItem("token")}`,
+                }
+            });
 
-            if (file.size > maxSize) {
-                setShowModal(true)
-                e.target.value = null;
-                return
+            if (res.ok) {
+                const data = await res.json();
+                setPosts((prevPosts) => [...prevPosts, ...data.results]);
+                setNextUrl(data.next);
+                setLoading(false);
+                console.log(data);
             }
-            console.log('Archivo valido: ',file.name)
+        } catch (error) {
+            console.error("Error al cargar los posts", error);
         }
     }
 
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && nextUrl && !loading) {
+                    loadPosts(nextUrl);
+                }
+            },
+            { threshold: 1 }
+        )
+        if (observerRef.current) {
+            observer.observe(observerRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, [nextUrl]);
+
     return(
         <div>
-            <h1>Profile</h1>
+            <h1 className="perfil">Profile</h1>
 
-            <div>
+            <div className="inputSection">
                 <form onSubmit={handleSubmit} encType="multipart/form-data">
                     <textarea 
                         name="texto" 
@@ -69,14 +104,23 @@ export function Profile(){
                     <input type="file" name="archivo" onChange={(e) => setArchivo(e.target.files[0])}/>
                     <button>Enviar</button>
                 </form>
-                {showModal && (
-                    <div className="overlay">
-                        <div className="modal">
-                            <p>El archivo excede el tamaño maximo de 50 MB</p>
-                            <button onClick={() => setShowModal(false)}>Cerrar</button>
-                        </div>
+            </div>
+
+            <div className="postsSection">
+                {posts.map((post) => (
+                    <div key={post.id} className="post">
+                        <p className="postText">{post.comentario}</p>
+                        {post.formato === "jpg" && (
+                            <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
+                        )}
+                        {post.formato === "mp4" && (
+                            <video controls src={post.archivo} className="postImage"/>
+                        )}
                     </div>
-                )}
+                ))}
+                <div ref={observerRef}>
+                    {loading && <p>Cargando más posts...</p>}
+                </div>
             </div>
 
             <DropdownMenu/>

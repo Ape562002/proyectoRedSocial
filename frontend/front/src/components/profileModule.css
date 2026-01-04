@@ -1,18 +1,32 @@
-.overlay{
-    position: fixed;
-    background-color: rgba(0, 0, 0, 0.5);
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: 'flex';
-    justify-content: 'center';
-    align-items: center;
+.perfil {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    font-family: monospace;
 }
 
-.modal{
-    background: '#fff';
-    padding: '20px';
-    border-radius: '8px';
-    text-align: 'center';
+.inputSection {
+    width: 300px;
+    text-align: center;
+    background-color: white;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.post {
+    width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 50px;
+}
+
+.postText {
+    font-size: 18px;
+    margin-bottom: 10px;
+    font-family: monospace;
+}
+
+.postImage {
+    width: 600px;
+    height: auto;
 }

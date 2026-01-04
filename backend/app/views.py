@@ -7,45 +7,73 @@ from django.shortcuts import get_list_or_404
 
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.views import APIView
 
 from django.contrib.auth.models import User
 from .models import Perfil
+from .models import Archivo
+from .serielizer import ArchivoSerializer
 from .serielizer import PerfilSerializer
 
 from django.contrib.auth import authenticate
 
 from .forms import subir
+from rest_framework.generics import ListAPIView
 
-@api_view(['POST'])
-def login(request):
-    user = get_list_or_404(User, username = request.data['username'])
-    
-    user = authenticate(username = request.data['username'],password = request.data['password'])
+class LoginView(APIView):
+    permission_classes = [AllowAny]
 
-    if not user:
-        return Response({"error":"Invalid password"},status=status.HTTP_400_BAD_REQUEST)
-    
-    token, created = Token.objects.get_or_create(user=user)
-    serializer = UserSerializer(instance=user)
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
 
-    return Response({"token": token.key, "user":serializer.data}, status=status.HTTP_200_OK)
+        if not username or not password:
+            return Response(
+                {'error': 'Username and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-@api_view(['POST'])
-def resgister(request):
-    serializer = UserSerializer(data=request.data)
+        user = authenticate(username=username, password=password)
 
-    if serializer.is_valid():
-        serializer.save()
+        if not user:
+            return Response(
+                {'error': 'Invalid credentials'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-        user = User.objects.get(username = serializer.data['username'])
-        user.set_password(serializer.data['password'])
-        user.save()
+        token, _ = Token.objects.get_or_create(user=user)
 
-        token = Token.objects.create(user=user)
-        return Response({'token':token.key,"user":serializer.data},status=status.HTTP_201_CREATED)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+            },
+            'token': token.key
+        }, status=status.HTTP_200_OK)
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user = serializer.save()
+            token, _ = Token.objects.get_or_create(user=user)
+
+            return Response({
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                },
+                'token': token.key
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
@@ -62,13 +90,19 @@ def profile(request):
 def simple_uploud(request):
     if request.method == 'POST':
         form = subir(request.POST, request.FILES)
-        print(request.user)
         if form.is_valid():
             form.instance.usuario = request.user
             form.save()
             return Response({'mensaje':'archivo subido'},status=200)
         return Response({'error': 'No se envió ningún archivo'}, status=400)
 
+class UserPostListView(ListAPIView):
+    serializer_class = ArchivoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Archivo.objects.filter(usuario=user).order_by('-fecha_subida')
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
