@@ -8,6 +8,11 @@ export function Profile(){
     const [posts, setPosts] = useState([])
     const [nextUrl, setNextUrl] = useState(null)
     const [loading, setLoading] = useState(false)
+    const [liked, setLiked] = useState(false)
+    const [likedCount, setLikedCount] = useState("")
+    const [comentarios, setComentarios] = useState("")
+    const [comentariosVisibles, setComentariosVisibles] = useState({})
+    const [comentarioText, setComentarioText] = useState("")
     const observerRef = useRef(null)
     const hasFetched = useRef(false);
 
@@ -66,7 +71,6 @@ export function Profile(){
                 setPosts((prevPosts) => [...prevPosts, ...data.results]);
                 setNextUrl(data.next);
                 setLoading(false);
-                console.log(data);
             }
         } catch (error) {
             console.error("Error al cargar los posts", error);
@@ -89,6 +93,74 @@ export function Profile(){
         return () => observer.disconnect();
     }, [nextUrl]);
 
+    const toggleLike = async (post) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/posts/${post.id}/like/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Token ${localStorage.getItem("token")}`,
+                    }
+                }
+            )
+
+            const data = await res.json()
+            setLiked(data.liked)
+            setLikedCount(data.likes_count)
+        } catch (error) {
+            return console.error("Error al dar like", error)
+        }
+    }
+
+    const submitComment = async (post) => {
+        if (!comentarioText.trim()) return
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/posts/${post.id}/comentario/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Token ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                    contenido: comentarioText
+                })
+            })
+
+            const newComment = await res.json()
+
+            setComentarioText("")
+        } catch (error) {
+            console.error("Error al enviar comentario", error)
+        }
+    }
+
+    const fetchComentarios = async (postId) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/posts/${postId}/comentarios/`, {
+                headers: {
+                    Authorization: `Token ${localStorage.getItem("token")}`,
+                }
+            })
+
+            const data = await res.json()
+            console.log(data)
+            setComentarios(prev => ({...prev, [postId]: data.results}))
+        } catch (error) {
+            console.error("Error al cargar comentarios", error)
+        }
+    }
+
+    const toggleComentarios = (postId) => {
+        setComentariosVisibles(prev => ({
+            ...prev,
+            [postId]: !prev[postId]
+        }));
+
+        if (!comentarios[postId]) {
+            fetchComentarios(postId);
+        }
+    };
+
     return(
         <div>
             <h1 className="perfil">Profile</h1>
@@ -110,12 +182,34 @@ export function Profile(){
                 {posts.map((post) => (
                     <div key={post.id} className="post">
                         <p className="postText">{post.comentario}</p>
+                        <button onClick={() => toggleLike(post)}>
+                            {liked ? '❤️' : '🤍'} {likedCount}
+                        </button>
                         {post.formato === "jpg" && (
                             <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
                         )}
                         {post.formato === "mp4" && (
                             <video controls src={post.archivo} className="postImage"/>
                         )}
+
+                        <div className="comentariosSection">
+                            <input
+                                type="text"
+                                value={comentarioText}
+                                onChange={(e) => setComentarioText(e.target.value)}
+                                placeholder="Escribe tu comentario"
+                            />
+                            <button onClick={() => submitComment(post)}>Enviar Comentario</button>
+                            <button onClick={() => toggleComentarios(post.id)}>Ver comentarios</button>
+
+                            {comentariosVisibles[post.id] &&
+                                comentarios[post.id]?.map(c => (
+                                    <p key={c.id}>
+                                    <b>{c.usuario}</b> {c.contenido}
+                                    </p>
+                                ))
+                            }
+                        </div>
                     </div>
                 ))}
                 <div ref={observerRef}>

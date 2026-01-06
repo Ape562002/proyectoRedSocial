@@ -1,9 +1,9 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serielizer import UserSerializer
+from .serielizer import ComentariosSerializer, UserSerializer
 from rest_framework.authtoken.models import Token
 from rest_framework import status
-from django.shortcuts import get_list_or_404
+from django.shortcuts import get_list_or_404, get_object_or_404
 
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -12,8 +12,9 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
 
 from django.contrib.auth.models import User
-from .models import Perfil
+from .models import Comentarios, Perfil
 from .models import Archivo
+from .models import Like
 from .serielizer import ArchivoSerializer
 from .serielizer import PerfilSerializer
 
@@ -103,6 +104,57 @@ class UserPostListView(ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Archivo.objects.filter(usuario=user).order_by('-fecha_subida')
+    
+class ToggleLikeView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, archivo_id):
+        archivo = get_object_or_404(Archivo, id=archivo_id)
+
+        like, created = Like.objects.get_or_create(
+            usuario=request.user,
+            archivo=archivo
+        )
+
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+
+        likes_count = Like.objects.filter(archivo=archivo).count()
+
+        return Response({
+            'liked': liked,
+            'likes_count': likes_count
+        }, status=status.HTTP_200_OK)
+    
+
+class CreateComentarioView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, archivo_id):
+        serializer = ComentariosSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(
+                usuario=request.user,
+                archivo_id=archivo_id
+            )
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ComentariosPostView(ListAPIView):
+    serializer_class = ComentariosSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        archivo_id = self.kwargs['archivo_id']
+        return Comentarios.objects.filter(archivo_id=archivo_id).order_by('-fecha_comentario')
+    
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])

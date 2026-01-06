@@ -58,3 +58,17 @@ class Archivo(models.Model):
     def __str__(self):
         return self.file.name
     
+class Like(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE)
+    fecha_like = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('usuario', 'archivo')
+
+
+class Comentarios(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE)
+    contenido = models.TextField()
+    fecha_comentario = models.DateTimeField(auto_now_add=True)

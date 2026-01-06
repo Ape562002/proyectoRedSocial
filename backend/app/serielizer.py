@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Perfil
+from .models import Comentarios, Perfil
 from .models import Archivo
 
 class UserSerializer(serializers.ModelSerializer):
@@ -29,3 +29,12 @@ class ArchivoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Archivo
         fields = ['id','comentario','archivo','fecha_subida','formato','usuario_id']
+
+
+class ComentariosSerializer(serializers.ModelSerializer):
+    usuario = serializers.StringRelatedField(read_only=True) 
+
+    class Meta:
+        model = Comentarios
+        fields = ['id','usuario','contenido','fecha_comentario'] 
+        read_only_fields = ['id', 'usuario','fecha_comentario']

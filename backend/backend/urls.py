@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import path
 from app import views
 from app.views import UserPostListView
+from app.views import ToggleLikeView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -12,6 +13,9 @@ urlpatterns = [
     path('profile/',views.profile),
     path('subir/',views.simple_uploud),
     path('posts/', UserPostListView.as_view()),
+    path('posts/<int:archivo_id>/like/', ToggleLikeView.as_view()),
+    path('posts/<int:archivo_id>/comentarios/',views.ComentariosPostView.as_view()),
+    path('posts/<int:archivo_id>/comentario/', views.CreateComentarioView.as_view()),
     path('logout/',views.logout)
 ]
 
