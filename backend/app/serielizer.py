@@ -38,3 +38,8 @@ class ComentariosSerializer(serializers.ModelSerializer):
         model = Comentarios
         fields = ['id','usuario','contenido','fecha_comentario'] 
         read_only_fields = ['id', 'usuario','fecha_comentario']
+
+class UserSearchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']

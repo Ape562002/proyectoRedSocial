@@ -16,6 +16,8 @@ urlpatterns = [
     path('posts/<int:archivo_id>/like/', ToggleLikeView.as_view()),
     path('posts/<int:archivo_id>/comentarios/',views.ComentariosPostView.as_view()),
     path('posts/<int:archivo_id>/comentario/', views.CreateComentarioView.as_view()),
+    path('users/search/', views.UserSearchView.as_view()),
+    path('enviar_solicitud/<int:user_id>/', views.SendFriendRequestView.as_view()),
     path('logout/',views.logout)
 ]
 

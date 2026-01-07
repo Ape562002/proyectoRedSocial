@@ -72,3 +72,12 @@ class Comentarios(models.Model):
     archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE)
     contenido = models.TextField()
     fecha_comentario = models.DateTimeField(auto_now_add=True)
+
+class SolicitudAmistad(models.Model):
+    remitente = models.ForeignKey(User, related_name='solicitudes_enviadas', on_delete=models.CASCADE)
+    destinatario = models.ForeignKey(User, related_name='solicitudes_recibidas', on_delete=models.CASCADE)
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    aceptada = models.CharField(max_length=10, choices=[('pendiente', 'Pendiente'), ('aceptada', 'Aceptada'), ('rechazada', 'Rechazada')], default='pendiente')
+
+    class Meta:
+        unique_together = ('remitente', 'destinatario')

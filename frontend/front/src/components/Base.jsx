@@ -39,6 +39,7 @@ const DropdownMenu = () => {
             <button onClick={() => setIsOpen(!isOpen)} className="dropdownButton">☰</button>
             <ul>
                 <li><a href="/">Inicio</a></li>
+                <li><a href="/search">Buscar</a></li>
                 <li><a href="/profile">Perfil</a></li>
                 <li><a href="/settings">Configuracion</a></li>
                 <li><button onClick={logout}>logout</button></li>

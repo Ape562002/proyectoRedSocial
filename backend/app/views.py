@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serielizer import ComentariosSerializer, UserSerializer
+from .serielizer import ComentariosSerializer, UserSearchSerializer, UserSerializer
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.shortcuts import get_list_or_404, get_object_or_404
@@ -15,6 +15,8 @@ from django.contrib.auth.models import User
 from .models import Comentarios, Perfil
 from .models import Archivo
 from .models import Like
+from django.db.models import Q
+from .models import SolicitudAmistad
 from .serielizer import ArchivoSerializer
 from .serielizer import PerfilSerializer
 
@@ -154,6 +156,64 @@ class ComentariosPostView(ListAPIView):
     def get_queryset(self):
         archivo_id = self.kwargs['archivo_id']
         return Comentarios.objects.filter(archivo_id=archivo_id).order_by('-fecha_comentario')
+    
+class UserSearchView(ListAPIView):
+    serializer_class = UserSearchSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '')
+
+        if not query:
+            return User.objects.none()
+
+        return User.objects.filter(
+            username__icontains=query
+        ).exclude(id=self.request.user.id)[:10]
+    
+class SendFriendRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        to_user = get_object_or_404(User, id=user_id)
+
+        if to_user == request.user:
+            return Response(
+                {'error': 'No puedes enviarte solicitud a ti mismo'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if SolicitudAmistad.objects.filter(
+            remitente=request.user,
+            destinatario=to_user,
+            aceptada='pendiente'
+        ).exists():
+            return Response(
+                {'error': 'Ya enviaste una solicitud'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if SolicitudAmistad.objects.filter(
+            aceptada='aceptada'
+        ).filter(
+            Q(remitente=request.user, destinatario=to_user) |
+            Q(remitente=to_user, destinatario=request.user)
+        ).exists():
+            return Response(
+                {'error': 'Ya son amigos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        SolicitudAmistad.objects.create(
+            remitente=request.user,
+            destinatario=to_user,
+            aceptada='pendiente'
+        )
+
+        return Response(
+            {'message': 'Solicitud enviada'},
+            status=status.HTTP_201_CREATED
+        )
     
 
 @api_view(['POST'])
