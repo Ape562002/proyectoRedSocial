@@ -10,15 +10,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
 
 from django.contrib.auth.models import User
 from .models import Comentarios, Perfil
 from .models import Archivo
 from .models import Like
 from django.db.models import Q
+from django.db.models import Count, Exists, OuterRef
 from .models import SolicitudAmistad
 from .serielizer import ArchivoSerializer
 from .serielizer import PerfilSerializer
+from .serielizer import perfilUsuarioSerializer
 
 from django.contrib.auth import authenticate
 
@@ -171,49 +174,140 @@ class UserSearchView(ListAPIView):
             username__icontains=query
         ).exclude(id=self.request.user.id)[:10]
     
+class perfilUsuarioView(RetrieveAPIView):
+    serializer_class = perfilUsuarioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return get_object_or_404(Perfil, usuario__id=self.kwargs['user_id'])
+    
+class PublicacionesUsuarioView(ListAPIView):
+    serializer_class = ArchivoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user_id = self.kwargs['user_id']
+
+        return Archivo.objects.filter(
+            usuario_id=user_id
+        ).annotate(
+            likes_count=Count('like'),
+            is_liked=Exists(
+                Like.objects.filter(
+                    usuario=self.request.user,
+                    archivo=OuterRef('pk')
+                )
+            )
+        ).order_by('-fecha_subida')
+    
+
 class SendFriendRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, user_id):
+        from_user = request.user
         to_user = get_object_or_404(User, id=user_id)
 
-        if to_user == request.user:
+        if from_user == to_user:
             return Response(
                 {'error': 'No puedes enviarte solicitud a ti mismo'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=400
             )
 
+        # Evitar duplicados
         if SolicitudAmistad.objects.filter(
-            remitente=request.user,
-            destinatario=to_user,
-            aceptada='pendiente'
+            remitente=from_user,
+            destinatario=to_user
         ).exists():
             return Response(
-                {'error': 'Ya enviaste una solicitud'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if SolicitudAmistad.objects.filter(
-            aceptada='aceptada'
-        ).filter(
-            Q(remitente=request.user, destinatario=to_user) |
-            Q(remitente=to_user, destinatario=request.user)
-        ).exists():
-            return Response(
-                {'error': 'Ya son amigos'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Solicitud ya enviada'},
+                status=400
             )
 
         SolicitudAmistad.objects.create(
-            remitente=request.user,
-            destinatario=to_user,
-            aceptada='pendiente'
+            remitente=from_user,
+            destinatario=to_user
         )
 
         return Response(
             {'message': 'Solicitud enviada'},
-            status=status.HTTP_201_CREATED
+            status=201
         )
+    
+class FriendshipStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        user = request.user
+
+        # ¿son amigos?
+        if SolicitudAmistad.objects.filter(
+            aceptada='aceptada'
+        ).filter(
+            Q(destinatario=user, remitente=user_id) |
+            Q(destinatario=user_id, remitente=user)
+        ).exists():
+            return Response({'status': 'friends'})
+
+        # ¿solicitud enviada?
+        if SolicitudAmistad.objects.filter(
+            remitente=user,
+            destinatario=user_id,
+            aceptada='pendiente'
+        ).exists():
+            fr = SolicitudAmistad.objects.get(
+                remitente=user_id,
+                destinatario=user,
+                aceptada='pendiente'
+            )
+            return Response({'status': 'pending_sent', 'request_id': fr.id})
+
+        # ¿solicitud recibida?
+        if SolicitudAmistad.objects.filter(
+            remitente=user_id,
+            destinatario=user,
+            aceptada='pendiente'
+        ).exists():
+            fr = SolicitudAmistad.objects.get(
+                remitente=user_id,
+                destinatario=user,
+                aceptada='pendiente'
+            )
+            return Response({'status': 'pending_received', 'request_id': fr.id})
+
+        return Response({'status': 'none'})
+    
+class AcceptFriendRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        friend_request = get_object_or_404(
+            SolicitudAmistad,
+            id=request_id,
+            destinatario=request.user,
+            aceptada='pendiente'
+        )
+
+        friend_request.aceptada = 'aceptada'
+        friend_request.save()
+
+        return Response({'message': 'Solicitud aceptada'}, status=200)
+    
+class RejectFriendRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        friend_request = get_object_or_404(
+            SolicitudAmistad,
+            id=request_id,
+            destinatario=request.user,
+            aceptada='pendiente'
+        )
+
+        friend_request.aceptada = 'rechazada'
+        friend_request.save()
+
+        return Response({'message': 'Solicitud rechazada'}, status=200)
     
 
 @api_view(['POST'])

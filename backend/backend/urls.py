@@ -17,7 +17,12 @@ urlpatterns = [
     path('posts/<int:archivo_id>/comentarios/',views.ComentariosPostView.as_view()),
     path('posts/<int:archivo_id>/comentario/', views.CreateComentarioView.as_view()),
     path('users/search/', views.UserSearchView.as_view()),
+    path('perfil_usuario/<int:user_id>/', views.perfilUsuarioView.as_view()),
+    path('posts/user/<int:user_id>/', views.PublicacionesUsuarioView.as_view()),
     path('enviar_solicitud/<int:user_id>/', views.SendFriendRequestView.as_view()),
+    path('comprobar_solicitud/<int:user_id>/', views.FriendshipStatusView.as_view()),
+    path('aceptar_solicitud/<int:request_id>/', views.AcceptFriendRequestView.as_view()),
+    path('rechazar_solicitud/<int:request_id>/', views.RejectFriendRequestView.as_view()),
     path('logout/',views.logout)
 ]
 

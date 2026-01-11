@@ -43,3 +43,18 @@ class UserSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username']
+
+class perfilUsuarioSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="usuario.username",read_only=True)
+
+    class Meta:
+        model = Perfil
+        fields = ['id','username','foto_perfil','usuario_id']
+
+class ArchivoSerializer(serializers.ModelSerializer):
+    likes_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Archivo
+        fields = ['id','comentario','archivo','likes_count','is_liked','fecha_subida','formato','usuario_id']
