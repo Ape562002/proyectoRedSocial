@@ -1,0 +1,22 @@
+.texto{
+    text-align: center;
+    font-family: monospace;
+}
+
+.toggleContent{
+    width: 80%;
+    margin-left: 30px;
+}
+
+.contentEdit{
+    margin-left: 30px;
+}
+
+.buttonEdit{
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px;
+    margin-left: 20px;
+    cursor: pointer;
+}

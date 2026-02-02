@@ -23,7 +23,17 @@ class PerfilSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Perfil
-        fields = ['id','username','foto_perfil','usuario_id']
+        fields = ['id','username','foto_perfil','descripcion','privado','usuario_id']
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username','email']
+
+class profileUpdateSerializar(serializers.ModelSerializer):
+    class Meta:
+        model = Perfil
+        fields = ['descripcion','privado','foto_perfil']
 
 class ArchivoSerializer(serializers.ModelSerializer):
     class Meta:

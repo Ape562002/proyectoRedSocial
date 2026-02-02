@@ -6,6 +6,7 @@ import { Profile } from "./pages/profilePage"
 import { PerfilUsuario } from "./pages/perfilUsuario"
 import { Register } from "./pages/registerPage"
 import { ModoOscuro } from "./pages/Settings"
+import { EditProfile } from './pages/editProfile'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/perfil/:userId" element={<PerfilUsuario />} />
         <Route path="/profile" element={<Profile/>}></Route>
         <Route path="/settings" element={<ModoOscuro/>}></Route>
+        <Route path="/editProfile" element={<EditProfile/>}></Route>
       </Routes>
     </BrowserRouter>
   )

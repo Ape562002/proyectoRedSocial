@@ -11,6 +11,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth.models import User
 from .models import Comentarios, Perfil
@@ -21,6 +22,8 @@ from django.db.models import Count, Exists, OuterRef
 from .models import SolicitudAmistad
 from .serielizer import ArchivoSerializer
 from .serielizer import PerfilSerializer
+from .serielizer import UserUpdateSerializer
+from .serielizer import profileUpdateSerializar
 from .serielizer import perfilUsuarioSerializer
 
 from django.contrib.auth import authenticate
@@ -89,6 +92,54 @@ def profile(request):
     perfil = Perfil.objects.get(usuario=request.user)
     serializer = PerfilSerializer(instance=perfil)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+class PerfilDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        perfil = request.user.perfil
+        
+        user_data = UserSerializer(user).data
+        perfil_data = PerfilSerializer(perfil).data
+
+        return Response({
+            'user': user_data,
+            'perfil': perfil_data
+        }, status=status.HTTP_200_OK)
+
+class PerfilUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self,request):
+        user = request.user
+        perfil = request.user.perfil
+
+        user_serializer = UserUpdateSerializer(
+            user,
+            data=request.data,
+            partial=True
+        )
+
+        profile_serializer = profileUpdateSerializar(
+            perfil,
+            data=request.data,
+            partial=True
+        )
+
+        if user_serializer.is_valid() and profile_serializer.is_valid():
+            user_serializer.save()
+            profile_serializer.save()
+            return Response({
+                'user': user_serializer.data,
+                'profile': profile_serializer.data
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'user_errors': user_serializer.errors,
+            'profile_errors': profile_serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
