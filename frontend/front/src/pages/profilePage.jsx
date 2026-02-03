@@ -69,6 +69,7 @@ export function Profile(){
             if (res.ok) {
                 const data = await res.json();
                 setPosts((prevPosts) => [...prevPosts, ...data.results]);
+                console.log(data.results);
                 setNextUrl(data.next);
                 setLoading(false);
             }
