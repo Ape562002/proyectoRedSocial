@@ -13,6 +13,12 @@ export function Profile(){
     const [comentarios, setComentarios] = useState("")
     const [comentariosVisibles, setComentariosVisibles] = useState({})
     const [comentarioText, setComentarioText] = useState("")
+
+    const [modalAbierto, setModelAbierto] = useState(false)
+    const [categorias, setCategorias] = useState([])
+    const [categoriaSeleccionadas, setCategoriaSeleccionadas] = useState([])
+    const [nuevaCategoria, setNuevaCategoria] = useState("")
+
     const observerRef = useRef(null)
     const hasFetched = useRef(false);
 
@@ -21,17 +27,48 @@ export function Profile(){
 
         hasFetched.current = true
         loadPosts("http://127.0.0.1:8000/posts/")
+        fetchCategorias()
     }, [])
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const formData = new FormData();
-        formData.append('comentario', texto)
-        if (archivo) {
-            formData.append('archivo',archivo)
+    const fetchCategorias = async () => {
+        try {
+            const res = await fetch("http://127.0.0.1:8000/categorias/", {
+                headers: {
+                    Authorization: `Token ${localStorage.getItem("token")}`,
+                }
+            })
+            const data = await res.json()
+            setCategorias(data)
+        } catch (error) {
+            console.error("Error al cargar las categorias", error)
         }
+    }
 
+    const toggleCategoria = (Id) => {
+        setCategoriaSeleccionadas(prev => 
+            prev.includes(Id) ? prev.filter(c => c !== Id) : [...prev, Id]
+        )
+    }
+
+    const agregarCategoria = async () => {
+        const nombre = nuevaCategoria.trim()
+        if (!nombre) return
+        if(categorias.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())){
+            setNuevaCategoria("")
+            return
+        }
+        const nueva = { id: `nueva_${nombre}`, nombre }
+        setCategorias(prev => [...prev, nueva])
+        setCategoriaSeleccionadas(prev => [...prev, nueva.id])
+        setNuevaCategoria("")
+    }
+
+    const publicar = async () => {
+        const formData = new FormData();
+        if (texto) formData.append('comentario', texto)
+        if (archivo) formData.append('archivo', archivo)
+        categoriaSeleccionadas.forEach(id => formData.append('categorias', id))
+    
         try{
             const response = await fetch('http://127.0.0.1:8000/subir/',{
                 method: 'POST',
@@ -42,9 +79,13 @@ export function Profile(){
             })
 
             if (response.ok){
+                const nuevaPublicacion = await response.json()
+                setPosts(prev => [nuevaPublicacion, ...prev])
                 alert('Comentario enviado con exito')
                 setTexto('')
                 setArchivo(null)
+                setCategoriaSeleccionadas([])
+                setModelAbierto(false)
             }else{
                 const data = await response.json()
                 alert('Error al enviar '+ JSON.stringify(data))
@@ -68,6 +109,14 @@ export function Profile(){
 
             if (res.ok) {
                 const data = await res.json();
+                const likedInit = {}
+                const countInit = {}
+                data.results.forEach(post => {
+                    likedInit[post.id] = post.liked || false
+                    countInit[post.id] = post.likes_count || 0
+                })
+                setLiked(prev => ({...prev, ...likedInit}))
+                setLikedCount(prev => ({...prev, ...countInit}))
                 setPosts((prevPosts) => [...prevPosts, ...data.results]);
                 console.log(data.results);
                 setNextUrl(data.next);
@@ -106,8 +155,8 @@ export function Profile(){
             )
 
             const data = await res.json()
-            setLiked(data.liked)
-            setLikedCount(data.likes_count)
+            setLiked(prev => ({...prev, [post.id]: data.liked}))
+            setLikedCount(prev => ({...prev, [post.id]: data.likes_count}))
         } catch (error) {
             return console.error("Error al dar like", error)
         }
@@ -128,6 +177,11 @@ export function Profile(){
             })
 
             const newComment = await res.json()
+
+            setComentarios(prev => ({
+                ...prev,
+                [post.id]: [...(prev[post.id] || []), newComment]
+            }))
 
             setComentarioText("")
         } catch (error) {
@@ -167,24 +221,63 @@ export function Profile(){
             <h1 className="perfil">Profile</h1>
 
             <div className="inputSection">
-                <form onSubmit={handleSubmit} encType="multipart/form-data">
-                    <textarea 
-                        name="texto" 
-                        value={texto} 
-                        onChange={(e) => setTexto(e.target.value)}>
-                        placeholder="Escribe tu comentario" required
-                    </textarea>
-                    <input type="file" name="archivo" onChange={(e) => setArchivo(e.target.files[0])}/>
-                    <button>Enviar</button>
-                </form>
+                <textarea 
+                    name="texto" 
+                    value={texto} 
+                    onChange={(e) => setTexto(e.target.value)}
+                    placeholder="Escribe tu comentario"
+                />
+                <input type="file" name="archivo" onChange={(e) => setArchivo(e.target.files[0])}/>
+                <button
+                    onClick={() => setModelAbierto(true)}
+                    disabled={!texto && !archivo}
+                >Siguiente</button>
             </div>
+
+            {modalAbierto && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <h2>Selecciona Categorias</h2>
+                        <p className="modal-subtitulo">Seleccione una o mas categorias</p>
+                        <div className="categorias-grid">
+                            {categorias.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => toggleCategoria(cat.id)}
+                                    className={`categoria-chip ${categoriaSeleccionadas.includes(cat.id) ? 'seleccionada' : ''}`}
+                                >
+                                    {categoriaSeleccionadas.includes(cat.id) && <span>'✓ '</span>}
+                                    {cat.nombre}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="nueva-categoria">
+                            <input
+                                type="text"
+                                placeholder="Nueva categoría"
+                                value={nuevaCategoria}
+                                onChange={(e) => setNuevaCategoria(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && agregarCategoria()}
+                            />
+                            <button onClick={agregarCategoria}>Agregar</button>
+                        </div>
+                        <div className="modal-botones">
+                            <button onClick={() => setModelAbierto(false)}>Cancelar</button>
+                            <button
+                                onClick={publicar}
+                                disabled={categoriaSeleccionadas.length === 0}
+                            >Publicar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="postsSection">
                 {posts.map((post) => (
                     <div key={post.id} className="post">
                         <p className="postText">{post.comentario}</p>
                         <button onClick={() => toggleLike(post)}>
-                            {liked ? '❤️' : '🤍'} {likedCount}
+                            {liked[post.id] ? '❤️' : '🤍'} {likedCount[post.id]}
                         </button>
                         {post.formato === "jpg" && (
                             <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
@@ -192,6 +285,7 @@ export function Profile(){
                         {post.formato === "mp4" && (
                             <video controls src={post.archivo} className="postImage"/>
                         )}
+                        {post.formato === "NaN" && null}
 
                         <div className="comentariosSection">
                             <input

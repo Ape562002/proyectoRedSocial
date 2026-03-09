@@ -36,9 +36,16 @@ class profileUpdateSerializar(serializers.ModelSerializer):
         fields = ['descripcion','privado','foto_perfil']
 
 class ArchivoSerializer(serializers.ModelSerializer):
+    likes_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.BooleanField(read_only=True)
+    categorias = serializers.StringRelatedField(many=True, read_only=True)
+
     class Meta:
         model = Archivo
-        fields = ['id','comentario','archivo','fecha_subida','formato','usuario_id']
+        fields = ['id','comentario','archivo','fecha_subida','formato','usuario_id','likes_count','is_liked','categorias','score_base']
+        extra_kwargs = {
+            'archivo': {'required': False},
+        }
 
 
 class ComentariosSerializer(serializers.ModelSerializer):
@@ -59,12 +66,4 @@ class perfilUsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Perfil
-        fields = ['id','username','foto_perfil','usuario_id']
-
-class ArchivoSerializer(serializers.ModelSerializer):
-    likes_count = serializers.IntegerField(read_only=True)
-    is_liked = serializers.BooleanField(read_only=True)
-
-    class Meta:
-        model = Archivo
-        fields = ['id','comentario','archivo','likes_count','is_liked','fecha_subida','formato','usuario_id']
+        fields = ['id','username','foto_perfil','descripcion','privado','usuario_id']

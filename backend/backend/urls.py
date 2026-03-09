@@ -14,6 +14,7 @@ urlpatterns = [
     path('perfil_detalle/', views.PerfilDetailView.as_view()),
     path('actualizar/',views.PerfilUpdateView.as_view()),
     path('subir/',views.simple_uploud),
+    path('categorias/', views.getCategorias),
     path('posts/', UserPostListView.as_view()),
     path('posts/<int:archivo_id>/like/', ToggleLikeView.as_view()),
     path('posts/<int:archivo_id>/comentarios/',views.ComentariosPostView.as_view()),

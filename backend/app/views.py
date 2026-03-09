@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from .models import Comentarios, Perfil
 from .models import Archivo
 from .models import Like
+from .models import Categoria
 from django.db.models import Q
 from django.db.models import Count, Exists, OuterRef
 from .models import SolicitudAmistad
@@ -148,10 +149,24 @@ def simple_uploud(request):
     if request.method == 'POST':
         form = subir(request.POST, request.FILES)
         if form.is_valid():
+
+            tiene_archivo = bool(request.FILES.get('archivo'))
+            tiene_comentario = bool(request.POST.get('comentario','').strip())
+
+            if not tiene_archivo and not tiene_comentario:
+                return Response({'error': 'Debes proporcionar un archivo o un comentario'}, status=400)
+            
             form.instance.usuario = request.user
             form.save()
             return Response({'mensaje':'archivo subido'},status=200)
         return Response({'error': 'No se envió ningún archivo'}, status=400)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def getCategorias(request):
+    categorias = Categoria.objects.all().values('id', 'nombre')
+    return Response(list(categorias))
 
 class UserPostListView(ListAPIView):
     serializer_class = ArchivoSerializer
@@ -159,7 +174,15 @@ class UserPostListView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Archivo.objects.filter(usuario=user).order_by('-fecha_subida')
+        return Archivo.objects.filter(usuario=user).annotate(
+            likes_count=Count('like'),
+            is_liked=Exists(
+                Like.objects.filter(
+                    usuario=self.request.user,
+                    archivo=OuterRef('pk')
+                )
+            )
+        ).order_by('-fecha_subida')
     
 class ToggleLikeView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -179,6 +202,8 @@ class ToggleLikeView(APIView):
         else:
             liked = True
 
+        actualizar_score_base(archivo)
+
         likes_count = Like.objects.filter(archivo=archivo).count()
 
         return Response({
@@ -186,18 +211,33 @@ class ToggleLikeView(APIView):
             'likes_count': likes_count
         }, status=status.HTTP_200_OK)
     
+def actualizar_score_base(archivo):
+    tiene_likes = Like.objects.filter(archivo=archivo).exists()
+    tiene_comentarios = Comentarios.objects.filter(archivo=archivo).exists()
+
+    score = 0
+    if tiene_likes and tiene_comentarios:
+        score += 2
+    elif tiene_likes or tiene_comentarios:
+        score += 1
+
+    archivo.score_base = score
+    archivo.save(update_fields=['score_base'])
 
 class CreateComentarioView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, archivo_id):
         serializer = ComentariosSerializer(data=request.data)
+        archivo = get_object_or_404(Archivo, id=archivo_id)
 
         if serializer.is_valid():
             serializer.save(
                 usuario=request.user,
                 archivo_id=archivo_id
             )
+
+            actualizar_score_base(archivo)
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 

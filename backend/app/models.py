@@ -25,14 +25,30 @@ class Perfil(models.Model):
     def __str__(self):
         return super.usuario.username
     
+class Categoria(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    es_predefinida = models.BooleanField(default=False)
+    creada_por = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return self.nombre
+    
 class Archivo(models.Model):
     comentario = models.CharField(max_length=200, null=True, blank=True)
-    archivo = models.FileField(upload_to=profile_picture_path)
+    archivo = models.FileField(upload_to=profile_picture_path, null=True, blank=True)
     fecha_subida = models.DateTimeField(auto_now_add=True)
     formato = models.CharField(max_length=20,blank=True)
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    categorias = models.ManyToManyField(Categoria, blank=True)
+    score_base = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):
+        if not self.archivo:
+            self.formato = "NaN"
+            
+            super().save(*args, **kwargs)
+            return
+
         _, ext = os.path.splitext(self.archivo.name)
         ext = ext.lower().lstrip('.')
 

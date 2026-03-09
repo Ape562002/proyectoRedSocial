@@ -1,6 +1,7 @@
 import { useState,useEffect, use } from "react"
 import imageCompression from "browser-image-compression"
 import DropdownMenu from "../components/Base"
+import "../components/editProfile.css"
 
 export function EditProfile(){
     const [username,setUsername] = useState("")
@@ -118,8 +119,8 @@ export function EditProfile(){
 
     return(
         <div>
-            <h1>Editar Perfil</h1>
-            <form onSubmit={handleSubmit}>
+            <h1 className="titulo">Editar Perfil</h1>
+            <form onSubmit={handleSubmit} className="contenedor">
                 {error && <pre style={{ color:"red" }}>{JSON.stringify(error, null, 2)}</pre>}
                 {success && <p style={{ color:"green" }}>{success}</p>}
 

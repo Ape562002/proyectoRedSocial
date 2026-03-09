@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import DropdownMenu from "../components/Base"
 import { useParams } from "react-router-dom"
 import { useState, useRef } from "react";
+import "../components/perfilUsuario.css"
 
 
 export function PerfilUsuario() {
@@ -220,7 +221,9 @@ export function PerfilUsuario() {
         <div>
             <h1>Perfil de Usuario</h1>
 
+            <img className="imgPerfil" src={usuario.foto_perfil ? `${usuario.foto_perfil}` : ""} alt="Foto de perfil" />
             <h2>{usuario.username}</h2>
+            <p>{usuario.descripcion}</p>
             {renderButton()}
             <div>
                 {posts.map((post) => (
