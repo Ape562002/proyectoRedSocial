@@ -18,6 +18,7 @@ from .models import Comentarios, Perfil
 from .models import Archivo
 from .models import Like
 from .models import Categoria
+from .models import HistorialVisto
 from django.db.models import Q
 from django.db.models import Count, Exists, OuterRef
 from .models import SolicitudAmistad
@@ -31,6 +32,8 @@ from django.contrib.auth import authenticate
 
 from .forms import subir
 from rest_framework.generics import ListAPIView
+
+from .ml import analizar_comentario
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -201,6 +204,7 @@ class ToggleLikeView(APIView):
             liked = False
         else:
             liked = True
+            registrar_visto(request.user, archivo)
 
         actualizar_score_base(archivo)
 
@@ -211,15 +215,18 @@ class ToggleLikeView(APIView):
             'likes_count': likes_count
         }, status=status.HTTP_200_OK)
     
-def actualizar_score_base(archivo):
+def actualizar_score_base(archivo, sentimiento=None):
     tiene_likes = Like.objects.filter(archivo=archivo).exists()
-    tiene_comentarios = Comentarios.objects.filter(archivo=archivo).exists()
 
-    score = 0
-    if tiene_likes and tiene_comentarios:
-        score += 2
-    elif tiene_likes or tiene_comentarios:
-        score += 1
+    score = archivo.score_base
+
+    if tiene_likes:
+        score = min(5, score + 1)
+
+    if sentimiento == 'positive':
+        score = min(5, score + 1)
+    elif sentimiento == 'negative' or sentimiento == 'neutral':
+        score = max(0, score - 1)
 
     archivo.score_base = score
     archivo.save(update_fields=['score_base'])
@@ -232,16 +239,38 @@ class CreateComentarioView(APIView):
         archivo = get_object_or_404(Archivo, id=archivo_id)
 
         if serializer.is_valid():
+            contenido = request.data.get('contenido', '')
+            sentimiento, _ = analizar_comentario(contenido)
+
             serializer.save(
                 usuario=request.user,
-                archivo_id=archivo_id
+                archivo_id=archivo_id,
+                sentimiento=sentimiento
             )
 
-            actualizar_score_base(archivo)
+            registrar_visto(request.user, archivo)
+            actualizar_score_base(archivo, sentimiento=sentimiento)
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+def registrar_visto(usuario, archivo):
+    HistorialVisto.objects.update_or_create(
+        usuario=usuario,
+        archivo=archivo
+    )
+
+    ids_mantener = list(
+        HistorialVisto.objects.filter(usuario=usuario)
+        .order_by('-fecha_visto')
+        .values_list('id', flat=True)[:5]
+    )
+
+    if ids_mantener:
+        HistorialVisto.objects.filter(
+            usuario=usuario
+        ).exclude(id__in=ids_mantener).delete()
 
 class ComentariosPostView(ListAPIView):
     serializer_class = ComentariosSerializer

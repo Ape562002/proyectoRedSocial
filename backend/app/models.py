@@ -40,7 +40,7 @@ class Archivo(models.Model):
     formato = models.CharField(max_length=20,blank=True)
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     categorias = models.ManyToManyField(Categoria, blank=True)
-    score_base = models.FloatField(default=0)
+    score_base = models.FloatField(default=3)
 
     def save(self, *args, **kwargs):
         if not self.archivo:
@@ -88,6 +88,16 @@ class Comentarios(models.Model):
     archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE)
     contenido = models.TextField()
     fecha_comentario = models.DateTimeField(auto_now_add=True)
+    sentimiento = models.CharField(max_length=20, default='neutral')
+
+class HistorialVisto(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE)
+    fecha_visto = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('usuario', 'archivo')
+        ordering = ['-fecha_visto']
 
 class SolicitudAmistad(models.Model):
     remitente = models.ForeignKey(User, related_name='solicitudes_enviadas', on_delete=models.CASCADE)
