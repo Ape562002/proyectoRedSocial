@@ -9,3 +9,4 @@ class subir(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['archivo'].required = False
+        self.fields['categorias'].required = False

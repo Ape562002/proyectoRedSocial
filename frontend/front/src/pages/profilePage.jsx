@@ -67,9 +67,31 @@ export function Profile(){
         const formData = new FormData();
         if (texto) formData.append('comentario', texto)
         if (archivo) formData.append('archivo', archivo)
-        categoriaSeleccionadas.forEach(id => formData.append('categorias', id))
-    
-        try{
+
+        const idsExistentes = categoriaSeleccionadas.filter(id => !String(id).startsWith('nueva_'))
+        const nombresNuevos = categoriaSeleccionadas
+            .filter(id => String(id).startsWith('nueva_'))
+            .map(id => String(id).replace('nueva_', ''))
+
+        try {
+            const idsNuevos = await Promise.all(
+                nombresNuevos.map(async (nombre) => {
+                    const res = await fetch("http://127.0.0.1:8000/categorias/crear/", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Token ${localStorage.getItem("token")}`,
+                        },
+                        body: JSON.stringify({ nombre }),
+                    })
+                    const data = await res.json()
+                    return data.id
+                })
+            )
+            
+            const todosLosIds = [...idsExistentes, ...idsNuevos]
+            todosLosIds.forEach(id => formData.append('categorias', id))
+
             const response = await fetch('http://127.0.0.1:8000/subir/',{
                 method: 'POST',
                 body: formData,

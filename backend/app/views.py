@@ -34,6 +34,8 @@ from .forms import subir
 from rest_framework.generics import ListAPIView
 
 from .ml import analizar_comentario
+from django.core.cache import cache
+import pandas as pd
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -162,7 +164,22 @@ def simple_uploud(request):
             form.instance.usuario = request.user
             form.save()
             return Response({'mensaje':'archivo subido'},status=200)
-        return Response({'error': 'No se envió ningún archivo'}, status=400)
+        
+        return Response({'error': form.errors}, status=400)
+    
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def crear_categoria(request):
+    nombre = request.data.get('nombre', '').strip()
+    if not nombre:
+        return Response({'error':'El nombre es requerido'}, status=400)
+    
+    categoria, _ = Categoria.objects.get_or_create(
+        nombre=nombre,
+        defaults={'creada_por_id': request.user.id, 'es_predefinida': False}
+    )
+    return Response({'id': categoria.id, 'nombre': categoria.nombre}, status=201)
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -170,6 +187,132 @@ def simple_uploud(request):
 def getCategorias(request):
     categorias = Categoria.objects.all().values('id', 'nombre')
     return Response(list(categorias))
+
+def obtener_datos_recomendacion(usuario):
+    historial = HistorialVisto.objects.filter(
+        usuario=usuario
+    ).select_related('archivo').order_by('-fecha_visto')[:5]
+
+    usuario_en = [
+        {
+            'id': h.archivo.id,
+            'rating': h.archivo.score_base
+        }
+        for h in historial
+    ]
+
+    publicaciones_lista = []
+    for pub in Archivo.objects.prefetch_related('categorias').all():
+        publicaciones_lista.append({
+            'id': pub.id,
+            'score_base': pub.score_base,
+            'categorias': " ".join([c.nombre for c in pub.categorias.all()])
+        })
+
+    df_publicaciones = pd.DataFrame(publicaciones_lista)
+    df_historial = pd.DataFrame(usuario_en)
+
+    return df_publicaciones, df_historial
+
+def calcular_recomendaciones(usuario):
+    df_publicaciones, df_historial = obtener_datos_recomendacion(usuario)
+
+    if df_historial.empty:
+        return list(
+            Archivo.objects.order_by('-score_base')
+            .values('id')[:10]
+        )
+    
+    peliculas_co = df_publicaciones.copy()
+
+    for index, row in df_publicaciones.iterrows():
+        if not row['categorias']:
+            continue
+        categorias = row['categorias'].split()
+        for categoria in categorias:
+            peliculas_co.at[index, categoria] = 1
+
+    peliculas_co = peliculas_co.fillna(0)
+
+    entrada = df_publicaciones[df_publicaciones['id'].isin(df_historial['id'].tolist())]
+    entrada = pd.merge(entrada, df_historial, on='id')
+
+    if entrada.empty:
+        return list(
+            Archivo.objects.order_by('-score_base')
+            .values('id',flat=True)[:20]
+        )
+
+    pubs_usuario = peliculas_co[peliculas_co['id'].isin(entrada['id'].tolist())]
+    pubs_usuario = pubs_usuario.drop_duplicates(subset=['id'])
+    pubs_usuario = pubs_usuario.reset_index(drop=True)
+    entrada = entrada.drop_duplicates(subset=['id'])
+    entrada = entrada.reset_index(drop=True)
+
+    columnas_categorias = [
+        col for col in peliculas_co.columns 
+        if col not in ['id', 'score_base', 'categorias']
+    ]
+
+    tabla_categorias = pubs_usuario[columnas_categorias]
+
+    perfil_usuario = tabla_categorias.transpose().dot(entrada['rating'])
+
+    generos = peliculas_co.set_index(peliculas_co['id'])
+    generos = generos.drop(columns=['id','score_base', 'categorias'])
+
+    recom = ((generos *perfil_usuario).sum(axis=1)) / (perfil_usuario.sum())
+    recom = recom.sort_values(ascending=False)
+
+    ids_vistos = df_historial['id'].tolist()
+    recom = recom[~recom.index.isin(ids_vistos)]
+    
+    return recom.index.tolist()
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def feed_recomendado(request):
+    pagina = int(request.GET.get('pagina',1))
+    por_pagina = 10
+    usuario = request.user
+
+    cache_key = f'recomendaciones_{usuario.id}'
+    ids_recomendados = cache.get(cache_key)
+
+    if not ids_recomendados:
+        ids_recomendados = calcular_recomendaciones(usuario)
+        cache.set(cache_key, ids_recomendados, timeout=3600)
+
+    inicio = (pagina - 1) * por_pagina
+    fin = inicio + por_pagina
+    ids_pagina = ids_recomendados[inicio:fin]
+
+    publicaciones = Archivo.objects.filter(
+        id__in=ids_pagina
+    ).prefetch_related('categorias').annotate(
+        likes_count=Count('like'),
+        is_liked=Exists(
+            Like.objects.filter(
+                usuario=request.user,
+                archivo=OuterRef('pk')
+            )
+        )
+    )
+
+    publicaciones_dict = {pub.id: pub for pub in publicaciones}
+    publicaciones_ordenadas = [
+        publicaciones_dict[id] for id in ids_pagina if id in publicaciones_dict
+    ]
+
+    serializer = ArchivoSerializer(publicaciones_ordenadas, many=True, context={'request': request})
+
+    return Response({
+        'recomendaciones': serializer.data,
+        'hay mas': fin < len(ids_recomendados),
+        'pagina_actual': pagina
+    })
+
 
 class UserPostListView(ListAPIView):
     serializer_class = ArchivoSerializer
@@ -271,6 +414,8 @@ def registrar_visto(usuario, archivo):
         HistorialVisto.objects.filter(
             usuario=usuario
         ).exclude(id__in=ids_mantener).delete()
+
+    cache.delete(f'recomendaciones_{usuario.id}')
 
 class ComentariosPostView(ListAPIView):
     serializer_class = ComentariosSerializer

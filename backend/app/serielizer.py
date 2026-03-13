@@ -39,6 +39,7 @@ class ArchivoSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.BooleanField(read_only=True)
     categorias = serializers.StringRelatedField(many=True, read_only=True)
+    archivo =serializers.FileField(use_url=True)
 
     class Meta:
         model = Archivo
