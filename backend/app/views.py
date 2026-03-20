@@ -193,13 +193,23 @@ def obtener_datos_recomendacion(usuario):
         usuario=usuario
     ).select_related('archivo').order_by('-fecha_visto')[:5]
 
-    usuario_en = [
-        {
-            'id': h.archivo.id,
-            'rating': h.archivo.score_base
-        }
-        for h in historial
-    ]
+    if historial.exists():
+        usuario_en = [
+            {
+                'id': h.archivo.id,
+                'rating': h.archivo.score_base
+            }
+            for h in historial
+        ]
+    else:
+        historial_default = Archivo.objects.order_by('-score_base')[:5]
+        usuario_en = [
+            {
+                'id': int(pub.id),
+                'rating': float(pub.score_base)
+            }
+            for pub in historial_default
+        ]
 
     publicaciones_lista = []
     for pub in Archivo.objects.prefetch_related('categorias').all():
@@ -274,7 +284,7 @@ def calcular_recomendaciones(usuario):
 @permission_classes([IsAuthenticated])
 def feed_recomendado(request):
     pagina = int(request.GET.get('pagina',1))
-    por_pagina = 10
+    por_pagina = 20
     usuario = request.user
 
     cache_key = f'recomendaciones_{usuario.id}'
@@ -453,9 +463,7 @@ class PublicacionesUsuarioView(ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs['user_id']
 
-        return Archivo.objects.filter(
-            usuario_id=user_id
-        ).annotate(
+        return Archivo.objects.filter(usuario_id=user_id).annotate(
             likes_count=Count('like'),
             is_liked=Exists(
                 Like.objects.filter(

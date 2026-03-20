@@ -75,6 +75,14 @@ export function PerfilUsuario() {
 
             if (res.ok) {
                 const data = await res.json();
+                const likedInit = {}
+                const countInit = {}
+                data.results.forEach(post => {
+                    likedInit[post.id] = post.liked || false
+                    countInit[post.id] = post.likes_count || 0
+                })
+                setLiked(prev => ({...prev, ...likedInit}))
+                setLikedCount(prev => ({...prev, ...countInit}))
                 setPosts((prevPosts) => [...prevPosts, ...data.results]);
                 console.log(data.results);
                 setNextUrl(data.next);
@@ -113,8 +121,8 @@ export function PerfilUsuario() {
             )
 
             const data = await res.json()
-            setLiked(data.liked)
-            setLikedCount(data.likes_count)
+            setLiked(prev => ({...prev, [post.id]: data.liked}))
+            setLikedCount(prev => ({...prev, [post.id]: data.likes_count}))
         } catch (error) {
             return console.error("Error al dar like", error)
         }
@@ -135,6 +143,11 @@ export function PerfilUsuario() {
             })
 
             const newComment = await res.json()
+
+            setComentarios(prev => ({
+                ...prev,
+                [post.id]: [...(prev[post.id] || []), newComment]
+            }))
 
             setComentarioText("")
         } catch (error) {
@@ -229,7 +242,7 @@ export function PerfilUsuario() {
                 {posts.map((post) => (
                     <div key={post.id} className="post">
                         <button onClick={() => toggleLike(post)}>
-                            {liked ? '❤️' : '🤍'} {likedCount}
+                            {liked[post.id] ? '❤️' : '🤍'} {likedCount[post.id]}
                         </button>
                         <h3>{post.comentario}</h3>
                         {post.formato === "jpg" && (

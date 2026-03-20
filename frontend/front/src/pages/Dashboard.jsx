@@ -21,8 +21,11 @@ export function Dashboard(){
         cargarRecomensaciones(1)
     }, [])
 
+    const cargando = useRef(false)
+
     const cargarRecomensaciones = async (paginaActual) => {
-        if (loading || !hayMas) return
+        if (cargando.current || !hayMas) return
+        cargando.current = true
         setLoading(true)
 
         try{
@@ -54,22 +57,25 @@ export function Dashboard(){
         } catch (error) {
             console.error("Error fetching recommendations:", error)
         } finally {
+            cargando.current = false
             setLoading(false)
         }
     }
 
     useEffect(() => {
+        if (!hayMas) return
+
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hayMas && !loading) {
+                if (entries[0].isIntersecting && !loading) {
                     cargarRecomensaciones(pagina)
                 }
             },
-            { threshold: 1 }
+            { threshold: 0.1 }
         )
         if (observerRef.current) observer.observe(observerRef.current)
         return () => observer.disconnect()
-    }, [hayMas, loading, pagina])
+    }, [hayMas, pagina])
 
     const toggleLike = async (post) => {
         try{
@@ -167,6 +173,12 @@ export function Dashboard(){
                         )}
                     </div>
                 ))}
+
+                <div ref={observerRef} style={{ height: '20px' }}></div>
+                {loading && <p>Cargando más recomendaciones...</p>}
+                {!hayMas && recomensaciones.length > 0 && (
+                    <p>No hay más recomendaciones.</p>
+                )}
 
             </div>
             <DropdownMenu/>

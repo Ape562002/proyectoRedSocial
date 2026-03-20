@@ -52,8 +52,11 @@ class Archivo(models.Model):
         _, ext = os.path.splitext(self.archivo.name)
         ext = ext.lower().lstrip('.')
 
-        if ext in ['jpg', 'jpeg', 'png', 'gif']:
+        if ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
             img = Image.open(self.archivo)
+
+            if img.mode in ('RGBA', 'LA','P'):
+                img = img.convert('RGB')
 
             max_width = 1280
             if img.width > max_width:
@@ -65,9 +68,12 @@ class Archivo(models.Model):
             img.save(img_io, format='JPEG', quality=75)
             img_io.seek(0)
 
-            self.archivo = ContentFile(img_io.read(), name=self.archivo.name)
+            nombre_sin_ext = os.path.splitext(self.archivo.name)[0]
+            self.archivo = ContentFile(img_io.read(), name=f"{nombre_sin_ext}.jpg")
+            self.formato = 'jpg'
+        else:
+            self.formato = ext
 
-        self.formato = ext
         super().save(*args, **kwargs)
 
 
