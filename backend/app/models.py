@@ -12,7 +12,7 @@ def profile_picture_path(instance, filename):
     return 'archivos/{}{}'.format(random_filename, extension)
 
 class Perfil(models.Model):
-    usuario = models.OneToOneField(User, on_delete=models.CASCADE)
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
     descripcion = models.CharField(max_length=200, null=True,blank=True)
     privado = models.BooleanField(default=False, null=True,blank=True)
     foto_perfil = models.ImageField(
@@ -113,3 +113,20 @@ class SolicitudAmistad(models.Model):
 
     class Meta:
         unique_together = ('remitente', 'destinatario')
+
+class Conversation(models.Model):
+    participants = models.ManyToManyField(User, related_name='conversaciones')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Conversación {self.id}"
+    
+class Message(models.Model):
+    conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, related_name='messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.content[:20]}"

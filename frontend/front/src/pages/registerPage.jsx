@@ -34,6 +34,7 @@ export function Register(){
 
                 if(response.ok){
                     localStorage.setItem("token", data.token);
+                    localStorage.setItem("user_id", data.user.id);
                     navi("/dashboard");
                 }else{
                     console.error("error: ",error);

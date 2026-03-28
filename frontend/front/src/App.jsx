@@ -7,6 +7,8 @@ import { PerfilUsuario } from "./pages/perfilUsuario"
 import { Register } from "./pages/registerPage"
 import { ModoOscuro } from "./pages/Settings"
 import { EditProfile } from './pages/editProfile'
+import { Friends } from './pages/friendsList'
+import { ChatPage } from "./pages/chatPage"
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
         <Route path="/search" element={<SearchPage/>}></Route>
         <Route path="/perfil/:userId" element={<PerfilUsuario />} />
         <Route path="/profile" element={<Profile/>}></Route>
+        <Route path="/friends" element={<Friends/>}></Route>
+        <Route path='/chatPage/:userId' element={<ChatPage/>}/>
         <Route path="/settings" element={<ModoOscuro/>}></Route>
         <Route path="/editProfile" element={<EditProfile/>}></Route>
       </Routes>
