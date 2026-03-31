@@ -7,6 +7,7 @@ from app.views import UserPostListView
 from app.views import ToggleLikeView
 
 urlpatterns = [
+    path('admin/tendencias/', views.panel_tendencias, name='panel_tendencias'),
     path('admin/', admin.site.urls),
     path('login/', views.LoginView.as_view()),
     path('resgister/', views.RegisterView.as_view()),

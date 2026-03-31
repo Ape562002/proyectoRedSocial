@@ -1,0 +1,22 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<!-- Botón de acceso rápido a tendencias -->
+<div style="margin-bottom: 20px;">
+    <a href="/admin/tendencias/" 
+       style="
+           background: #417690;
+           color: white;
+           padding: 12px 24px;
+           border-radius: 6px;
+           text-decoration: none;
+           font-size: 15px;
+           display: inline-block;
+       ">
+        📊 Ver Panel de Tendencias
+    </a>
+</div>
+
+<!-- Contenido original del admin -->
+{{ block.super }}
+{% endblock %}

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tendencias | Admin</title>
+    {% load static %}
+    <!-- Heredar estilos del admin de Django -->
+    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        .dashboard-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .graficas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .grafica-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .grafica-card h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+            border-bottom: 2px solid #417690;
+            padding-bottom: 10px;
+        }
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #417690;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card .numero {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header del admin de Django -->
+    <div id="header">
+        <div id="branding">
+            <h1 id="site-name">
+                <a href="/admin/">Administración</a> › Tendencias
+            </h1>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <h2>📊 Panel de Tendencias</h2>
+
+        <!-- Tarjetas de resumen -->
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="numero">{{ total_publicaciones }}</div>
+                <div class="label">Publicaciones totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="numero">{{ total_likes }}</div>
+                <div class="label">Likes totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="numero">{{ total_comentarios }}</div>
+                <div class="label">Comentarios totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="numero">{{ total_usuarios }}</div>
+                <div class="label">Usuarios registrados</div>
+            </div>
+        </div>
+
+        <!-- Gráficas -->
+        <div class="graficas-grid">
+            <div class="grafica-card">
+                <h3>📅 Actividad por día (últimos 7 días)</h3>
+                <canvas id="graficaActividad"></canvas>
+            </div>
+            <div class="grafica-card">
+                <h3>🏷️ Categorías más populares</h3>
+                <canvas id="graficaCategorias"></canvas>
+            </div>
+            <div class="grafica-card" style="grid-column: 1 / -1;">
+                <h3>📈 Publicaciones por semana (últimas 8 semanas)</h3>
+                <canvas id="graficaSemanal"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const labelsDias = {{ labels_dias|safe }};
+        const datosPublicaciones = {{ datos_publicaciones|safe }};
+        const datosLikes = {{ datos_likes|safe }};
+        const datosComentarios = {{ datos_comentarios|safe }};
+        const labelsCategorias = {{ labels_categorias|safe }};
+        const datosCategorias = {{ datos_categorias|safe }};
+        const labelsSemanas = {{ labels_semanas|safe }};
+        const datosSemanales = {{ datos_semanales|safe }};
+    </script>
+
+    <script>
+        const ctxActividad = document.getElementById('graficaActividad').getContext('2d')
+        new Chart(ctxActividad, {
+            type: 'bar',
+            data: {
+                labels: labelsDias,  // ← variable JS normal, sin template tags
+                datasets: [
+                    {
+                        label: 'Publicaciones',
+                        data: datosPublicaciones,
+                        backgroundColor: '#417690',
+                    },
+                    {
+                        label: 'Likes',
+                        data: datosLikes,
+                        backgroundColor: '#79aec8',
+                    },
+                    {
+                        label: 'Comentarios',
+                        data: datosComentarios,
+                        backgroundColor: '#f0a500',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        })
+
+        const ctxCategorias = document.getElementById('graficaCategorias').getContext('2d')
+        new Chart(ctxCategorias, {
+            type: 'doughnut',
+            data: {
+                labels: labelsCategorias,
+                datasets: [{
+                    data: datosCategorias,
+                    backgroundColor: [
+                        '#417690', '#79aec8', '#f0a500',
+                        '#44b78b', '#e74c3c', '#9b59b6', '#1abc9c'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        })
+
+        const ctxSemanal = document.getElementById('graficaSemanal').getContext('2d')
+        new Chart(ctxSemanal, {
+            type: 'line',
+            data: {
+                labels: labelsSemanas,
+                datasets: [{
+                    label: 'Publicaciones por semana',
+                    data: datosSemanales,
+                    borderColor: '#417690',
+                    backgroundColor: 'rgba(65, 118, 144, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        })
+    </script>
+</body>
+</html>

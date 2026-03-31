@@ -4,6 +4,11 @@ from .serielizer import ComentariosSerializer, UserSearchSerializer, UserSeriali
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from django.shortcuts import get_list_or_404, get_object_or_404
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render
+from django.utils import timezone
+from datetime import timedelta
+import json
 
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -36,6 +41,71 @@ from rest_framework.generics import ListAPIView
 from .ml import analizar_comentario
 from django.core.cache import cache
 import pandas as pd
+
+@staff_member_required
+def panel_tendencias(request):
+    hoy = timezone.now().date()
+
+    total_publicaciones = Archivo.objects.count()
+    total_likes = Like.objects.count()
+    total_comentarios = Comentarios.objects.count()
+    total_usuarios = User.objects.count()
+
+    labels_dias = []
+    datos_publicaciones = []
+    datos_likes = []
+    datos_comentarios = []
+
+    for i in range(6, -1, -1):
+        dia = hoy - timedelta(days=i)
+        labels_dias.append(dia.strftime('%d/%m'))
+        datos_publicaciones.append(
+            Archivo.objects.filter(fecha_subida__date=dia).count()
+        )
+        datos_likes.append(
+            Like.objects.filter(fecha_like__date=dia).count()
+        )
+        datos_comentarios.append(
+            Comentarios.objects.filter(fecha_comentario__date=dia).count()
+        )
+
+    categorias = Categoria.objects.annotate(
+        total_interacciones=Count('archivo__like') + Count('archivo__comentarios')
+    ).order_by('-total_interacciones')[:7]
+
+    labels_categorias = [c.nombre for c in categorias]
+    datos_categorias = [c.total_interacciones for c in categorias]
+
+    labels_semanas = []
+    datos_semanales = []
+
+    for i in range(7, -1, -1):
+        inicio_semana = hoy - timedelta(weeks=i)
+        fin_semana = inicio_semana + timedelta(days=7)
+        labels_semanas.append(inicio_semana.strftime('%d/%m'))
+        datos_semanales.append(
+            Archivo.objects.filter(
+                fecha_subida__date__gte=inicio_semana,
+                fecha_subida__date__lt=fin_semana
+            ).count()
+        )
+
+    context = {
+        'total_publicaciones': total_publicaciones,
+        'total_likes': total_likes,
+        'total_comentarios': total_comentarios,
+        'total_usuarios': total_usuarios,
+        'labels_dias': json.dumps(labels_dias),
+        'datos_publicaciones': json.dumps(datos_publicaciones),
+        'datos_likes': json.dumps(datos_likes),
+        'datos_comentarios': json.dumps(datos_comentarios),
+        'labels_categorias': json.dumps(labels_categorias),
+        'datos_categorias': json.dumps(datos_categorias),
+        'labels_semanas': json.dumps(labels_semanas),
+        'datos_semanales': json.dumps(datos_semanales),
+    }
+
+    return render(request, 'admin/tendencias.html', context)
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
