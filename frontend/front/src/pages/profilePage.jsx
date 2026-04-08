@@ -99,22 +99,56 @@ export function Profile(){
                     Authorization: `token ${localStorage.getItem("token")}`,
                 }
             })
+            const data = await response.json()
 
-            if (response.ok){
-                const nuevaPublicacion = await response.json()
-                setPosts(prev => [nuevaPublicacion, ...prev])
-                alert('Comentario enviado con exito')
-                setTexto('')
+            if(!response.ok){
+                alert('Error al enviar: ' + JSON.stringify(data))
+                return
+            }
+
+            if(data.bloqueado){
+                alert(data.mensaje)
+                setTexto("")
                 setArchivo(null)
                 setCategoriaSeleccionadas([])
                 setModelAbierto(false)
-            }else{
-                const data = await response.json()
-                alert('Error al enviar '+ JSON.stringify(data))
+                return
             }
+
+            if (data.categoria_auto){
+                const msg = data.confianza_auto >= 70
+                    ? `✅ Publicado. Categoría detectada automáticamente: ${data.categoria_auto} (${data.confianza_auto}%)`
+                    : `✅ Publicado. Sugerencia de categoría: ${data.categoria_auto} (${data.confianza_auto}% de confianza)`
+                alert(msg)
+            } else {
+                alert('Publicación enviada con éxito')
+            }
+
+            setPosts(prev => [data, ...prev])
+            setTexto('')
+            setArchivo(null)
+            setCategoriaSeleccionadas([])
+            setModelAbierto(false)
+
         } catch (error) {
             alert('Error en el envio del comentario')
             console.log(archivo)
+        }
+    }
+
+    const apelarBloqueo = async (archivoId) => {
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/posts/${archivoId}/apelar/`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Token ${localStorage.getItem("token")}`,
+                }
+            })
+            const data = await res.json()
+            alert(data.mensaje || 'Apelación enviada.')
+        } catch (error) {
+            alert('Error al enviar la apelación.')
+            console.error(error)
         }
     }
 
@@ -251,7 +285,13 @@ export function Profile(){
                 />
                 <input type="file" name="archivo" onChange={(e) => setArchivo(e.target.files[0])}/>
                 <button
-                    onClick={() => setModelAbierto(true)}
+                    onClick={() => {
+                        if (archivo && archivo.type.startsWith('image/')) {
+                            publicar()
+                        } else {
+                            setModelAbierto(true)
+                        }
+                    }}
                     disabled={!texto && !archivo}
                 >Siguiente</button>
             </div>
@@ -301,8 +341,17 @@ export function Profile(){
                         <button onClick={() => toggleLike(post)}>
                             {liked[post.id] ? '❤️' : '🤍'} {likedCount[post.id]}
                         </button>
-                        {post.formato === "jpg" && (
-                            <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
+
+                        {post.bloqueado === true ? (
+                            <div className="bloqueadoOverlay">
+                                <p>Contenido bloqueado por violar las normas comunitarias.</p>
+                            </div>
+                        ) : (
+                            <>
+                                {post.formato === "jpg" && (
+                                    <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
+                                )}
+                            </>
                         )}
                         {post.formato === "mp4" && (
                             <video controls src={post.archivo} className="postImage"/>

@@ -41,6 +41,7 @@ class Archivo(models.Model):
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     categorias = models.ManyToManyField(Categoria, blank=True)
     score_base = models.FloatField(default=3)
+    bloqueado = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.archivo:
@@ -79,6 +80,39 @@ class Archivo(models.Model):
 
     def __str__(self):
         return self.archivo.name if self.archivo else f"Publicacion #{self.id}"
+    
+class ContenidoBloqueado(models.Model):
+
+    ESTADO_CHOICES = [
+        ('bloqueado', 'Bloqueado - pendiente de revision'),
+        ('confirmaso', 'Confirmado - contenido bloqueado'),
+        ('apelado', 'Apelado - el usuario soicita revision'),
+        ('restaurado', 'Restaurado - falso positivo'),
+    ]
+
+    archivo = models.OneToOneField(Archivo, on_delete=models.CASCADE, related_name='contenido_bloqueado')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='contenido_bloqueado')
+    categoria_modelo = models.CharField(max_length=100)
+    confianza = models.FloatField()
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='bloqueado')
+    fecha_bloqueo = models.DateTimeField(auto_now_add=True)
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    revisado_por = models.ForeignKey(
+        User,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='revisiones_moderacion'
+    )
+    motivo_revision = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-fecha_bloqueo']
+        verbose_name = 'Contenido Bloqueado'
+        verbose_name_plural = 'Contenidos Bloqueados'
+
+    def __str__(self):
+        return f"Bloqueado: {self.archivo} | {self.categoria_modelo} ({self.confianza:.1f})"
+
     
 class Like(models.Model):
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)

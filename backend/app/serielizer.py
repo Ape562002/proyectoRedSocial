@@ -40,10 +40,11 @@ class ArchivoSerializer(serializers.ModelSerializer):
     is_liked = serializers.BooleanField(read_only=True)
     categorias = serializers.StringRelatedField(many=True, read_only=True)
     archivo =serializers.FileField(use_url=True)
+    bloqueado = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Archivo
-        fields = ['id','comentario','archivo','fecha_subida','formato','usuario_id','likes_count','is_liked','categorias','score_base']
+        fields = ['id','comentario','archivo','fecha_subida','formato','usuario_id','likes_count','is_liked','categorias','score_base','bloqueado']
         extra_kwargs = {
             'archivo': {'required': False},
         }

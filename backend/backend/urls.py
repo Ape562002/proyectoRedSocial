@@ -8,6 +8,7 @@ from app.views import ToggleLikeView
 
 urlpatterns = [
     path('admin/tendencias/', views.panel_tendencias, name='panel_tendencias'),
+    path('admin/moderacion/', views.panel_moderacion, name='panel_moderacion'),
     path('admin/', admin.site.urls),
     path('login/', views.LoginView.as_view()),
     path('resgister/', views.RegisterView.as_view()),
@@ -16,6 +17,7 @@ urlpatterns = [
     path('actualizar/',views.PerfilUpdateView.as_view()),
     path('subir/',views.simple_uploud),
     path('categorias/', views.getCategorias),
+    path('posts/<int:archivo_id>/apelar/' ,views.apelar_bloqueo, name='apelar_bloqueo'),
     path('categorias/crear/',views.crear_categoria),
     path('feed/recomendados/', views.feed_recomendado, name='feed-recomendado'),
     path('posts/', UserPostListView.as_view()),

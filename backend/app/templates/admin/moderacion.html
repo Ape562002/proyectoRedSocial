@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Panel de Moderación{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 24px;">🛡️ Panel de Moderación</h1>
+
+<!-- Resumen de estados -->
+<div style="display:flex; gap:16px; margin-bottom:32px; flex-wrap:wrap;">
+    <div style="background:#fff3cd; border-radius:8px; padding:16px 24px; min-width:140px; border-left:4px solid #ffc107;">
+        <div style="font-size:28px; font-weight:700; color:#856404;">{{ total_bloqueados }}</div>
+        <div style="color:#856404; font-size:13px;">Pendientes</div>
+    </div>
+    <div style="background:#cff4fc; border-radius:8px; padding:16px 24px; min-width:140px; border-left:4px solid #0dcaf0;">
+        <div style="font-size:28px; font-weight:700; color:#055160;">{{ total_apelados }}</div>
+        <div style="color:#055160; font-size:13px;">Apelados</div>
+    </div>
+    <div style="background:#d1e7dd; border-radius:8px; padding:16px 24px; min-width:140px; border-left:4px solid #198754;">
+        <div style="font-size:28px; font-weight:700; color:#0f5132;">{{ total_restaurados }}</div>
+        <div style="color:#0f5132; font-size:13px;">Restaurados</div>
+    </div>
+    <div style="background:#f8d7da; border-radius:8px; padding:16px 24px; min-width:140px; border-left:4px solid #dc3545;">
+        <div style="font-size:28px; font-weight:700; color:#842029;">{{ total_confirmados }}</div>
+        <div style="color:#842029; font-size:13px;">Confirmados</div>
+    </div>
+</div>
+
+<!-- Filtro por estado -->
+<div style="margin-bottom:20px;">
+    <a href="?estado=bloqueado"  style="margin-right:8px; padding:6px 14px; border-radius:20px; text-decoration:none; font-size:13px; background:{% if estado_activo == 'bloqueado' %}#ffc107{% else %}#e9ecef{% endif %}; color:#333;">Pendientes</a>
+    <a href="?estado=apelado"    style="margin-right:8px; padding:6px 14px; border-radius:20px; text-decoration:none; font-size:13px; background:{% if estado_activo == 'apelado' %}#0dcaf0{% else %}#e9ecef{% endif %}; color:#333;">Apelados</a>
+    <a href="?estado=confirmado" style="margin-right:8px; padding:6px 14px; border-radius:20px; text-decoration:none; font-size:13px; background:{% if estado_activo == 'confirmado' %}#dc3545; color:white{% else %}#e9ecef; color:#333{% endif %};">Confirmados</a>
+    <a href="?estado=restaurado" style="margin-right:8px; padding:6px 14px; border-radius:20px; text-decoration:none; font-size:13px; background:{% if estado_activo == 'restaurado' %}#198754; color:white{% else %}#e9ecef; color:#333{% endif %};">Restaurados</a>
+    <a href="?"                  style="padding:6px 14px; border-radius:20px; text-decoration:none; font-size:13px; background:{% if not estado_activo %}#417690; color:white{% else %}#e9ecef; color:#333{% endif %};">Todos</a>
+</div>
+
+<!-- Tabla de contenido bloqueado -->
+{% if bloqueos %}
+<div style="background:white; border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.1);">
+    <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <thead>
+            <tr style="background:#417690; color:white;">
+                <th style="padding:12px 16px; text-align:left;">Imagen</th>
+                <th style="padding:12px 16px; text-align:left;">Usuario</th>
+                <th style="padding:12px 16px; text-align:left;">Categoría detectada</th>
+                <th style="padding:12px 16px; text-align:left;">Confianza</th>
+                <th style="padding:12px 16px; text-align:left;">Estado</th>
+                <th style="padding:12px 16px; text-align:left;">Fecha</th>
+                <th style="padding:12px 16px; text-align:left;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bloqueo in bloqueos %}
+            <tr style="border-bottom:1px solid #dee2e6; {% cycle '' 'background:#f8f9fa' %}">
+                <td style="padding:12px 16px;">
+                    {% if bloqueo.archivo.archivo %}
+                        <img src="{{ bloqueo.archivo.archivo.url }}"
+                             style="width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid #dee2e6;"
+                             alt="imagen bloqueada">
+                    {% else %}
+                        <div style="width:64px; height:64px; background:#e9ecef; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#adb5bd;">Sin img</div>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px;">
+                    <strong>{{ bloqueo.usuario.username }}</strong>
+                </td>
+                <td style="padding:12px 16px;">
+                    <span style="background:#fff3cd; color:#856404; padding:3px 8px; border-radius:12px; font-size:12px;">
+                        {{ bloqueo.categoria_modelo }}
+                    </span>
+                </td>
+                <td style="padding:12px 16px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="width:80px; height:8px; background:#e9ecef; border-radius:4px; overflow:hidden;">
+                            <div style="height:100%; width:{{ bloqueo.confianza }}%; background:{% if bloqueo.confianza >= 70 %}#198754{% elif bloqueo.confianza >= 40 %}#ffc107{% else %}#dc3545{% endif %}; border-radius:4px;"></div>
+                        </div>
+                        <span style="font-size:13px; color:#666;">{{ bloqueo.confianza }}%</span>
+                    </div>
+                </td>
+                <td style="padding:12px 16px;">
+                    {% if bloqueo.estado == 'bloqueado' %}
+                        <span style="background:#fff3cd; color:#856404; padding:3px 10px; border-radius:12px; font-size:12px;">Pendiente</span>
+                    {% elif bloqueo.estado == 'apelado' %}
+                        <span style="background:#cff4fc; color:#055160; padding:3px 10px; border-radius:12px; font-size:12px;">Apelado</span>
+                    {% elif bloqueo.estado == 'confirmado' %}
+                        <span style="background:#f8d7da; color:#842029; padding:3px 10px; border-radius:12px; font-size:12px;">Confirmado</span>
+                    {% elif bloqueo.estado == 'restaurado' %}
+                        <span style="background:#d1e7dd; color:#0f5132; padding:3px 10px; border-radius:12px; font-size:12px;">Restaurado</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px; color:#666; font-size:13px;">
+                    {{ bloqueo.fecha_bloqueo|date:"d/m/Y H:i" }}
+                </td>
+                <td style="padding:12px 16px;">
+                    {% if bloqueo.estado == 'bloqueado' or bloqueo.estado == 'apelado' %}
+                    <form method="POST" action="/admin/moderacion/{{ bloqueo.id }}/revisar/" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="restaurar">
+                        <button type="submit"
+                            onclick="return confirm('¿Restaurar esta publicación?')"
+                            style="background:#198754; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; margin-right:6px;">
+                            ✅ Restaurar
+                        </button>
+                    </form>
+                    <form method="POST" action="/admin/moderacion/{{ bloqueo.id }}/revisar/" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="confirmar">
+                        <button type="submit"
+                            onclick="return confirm('¿Confirmar bloqueo permanente?')"
+                            style="background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">
+                            🚫 Confirmar
+                        </button>
+                    </form>
+                    {% else %}
+                        <span style="color:#adb5bd; font-size:13px;">Revisado</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div style="background:white; border-radius:8px; padding:48px; text-align:center; color:#adb5bd; box-shadow:0 1px 4px rgba(0,0,0,0.1);">
+    <div style="font-size:48px; margin-bottom:12px;">✅</div>
+    <p style="font-size:16px;">No hay contenido bloqueado con este filtro.</p>
+</div>
+{% endif %}
+
+{% endblock %}

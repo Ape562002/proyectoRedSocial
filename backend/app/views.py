@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from .serielizer import ComentariosSerializer, UserSearchSerializer, UserSerializer
 from rest_framework.authtoken.models import Token
 from rest_framework import status
-from django.shortcuts import get_list_or_404, get_object_or_404
+from django.shortcuts import get_list_or_404, get_object_or_404, redirect
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render
 from django.utils import timezone
@@ -24,6 +24,7 @@ from .models import Archivo
 from .models import Like
 from .models import Categoria
 from .models import HistorialVisto
+from .models import ContenidoBloqueado
 from django.db.models import Q
 from django.db.models import Count, Exists, OuterRef
 from .models import SolicitudAmistad
@@ -39,6 +40,7 @@ from .forms import subir
 from rest_framework.generics import ListAPIView
 
 from .ml import analizar_comentario
+from .clasificador_imagen import clasificar_imagen
 from django.core.cache import cache
 import pandas as pd
 
@@ -106,6 +108,47 @@ def panel_tendencias(request):
     }
 
     return render(request, 'admin/tendencias.html', context)
+
+@staff_member_required
+def panel_moderacion(request):
+    estado_activo = request.GET.get('estado', '')
+
+    bloques = ContenidoBloqueado.objects.select_related('archivo', 'usuario', 'revisado_por')
+
+    if estado_activo:
+        bloques = bloques.filter(estado=estado_activo)
+
+    bloqueos = bloques.order_by('-fecha_bloqueo')
+
+    context = {
+        'bloqueos':           bloqueos,
+        'estado_activo':      estado_activo,
+        'total_bloqueados':   ContenidoBloqueado.objects.filter(estado='bloqueado').count(),
+        'total_apelados':     ContenidoBloqueado.objects.filter(estado='apelado').count(),
+        'total_restaurados':  ContenidoBloqueado.objects.filter(estado='restaurado').count(),
+        'total_confirmados':  ContenidoBloqueado.objects.filter(estado='confirmado').count(),
+    }
+
+    return render(request, 'admin/moderacion.html', context)
+
+@staff_member_required
+def revisar_bloqueo(request, bloqueo_id):
+    bloqueo = get_object_or_404(ContenidoBloqueado, id=bloqueo_id)
+    accion = request.POST.get('accion')
+
+    if accion == 'restaurar':
+        bloqueo.estado = 'restaurado'
+        bloqueo.archivo.bloqueado = False
+        bloqueo.archivo.save(update_fields=['bloqueado'])
+    elif accion == 'confirmar':
+        bloqueo.estado = 'confirmado'
+
+    bloqueo.revisado_por = request.user
+    bloqueo.fecha_revision = timezone.now()
+    bloqueo.save()
+
+    estado_previo = request.POST.get('estado_previo', '')
+    return redirect(f'/admin/moderacion/?estado={estado_previo}')
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -231,11 +274,82 @@ def simple_uploud(request):
             if not tiene_archivo and not tiene_comentario:
                 return Response({'error': 'Debes proporcionar un archivo o un comentario'}, status=400)
             
+            categoria_detectada = None
+            confianza_detectada = None
+            es_imagen = False
+
+            if tiene_archivo:
+                archivo_subido = request.FILES['archivo']
+                tipo = archivo_subido.content_type or ''
+                es_imagen = tipo.startswith('image/')
+
             form.instance.usuario = request.user
-            form.save()
-            return Response({'mensaje':'archivo subido'},status=200)
+            publicacion = form.save(commit=False)
+
+            if es_imagen:
+                resultado = clasificar_imagen(request.FILES['archivo'])
+
+                if resultado and resultado['confianza_suficiente']:
+                    categoria_detectada = resultado['categoria']
+                    confianza_detectada = resultado['confianza']
+
+                    if resultado['es_moderada']:
+                        form.instance.usuario = request.user
+                        form.instance.bloqueado = True
+                        publicacion.save()
+
+                        ContenidoBloqueado.objects.create(
+                            archivo=publicacion,
+                            usuario = request.user,
+                            categoria_modelo = categoria_detectada,
+                            confianza = confianza_detectada,
+                            estado = 'bloqueado',
+                        )
+
+                        return Response({
+                            'bloqueado': True,
+                            'mensaje': ('Tu publicación ha sido bloqueada por contener contenido inapropiado','Puedes apelar esta decisión contactando con soporte.'),
+                            'categoria_detectada': categoria_detectada,
+                            'confianza': confianza_detectada,
+                        },status=200)
+                    
+            publicacion.bloqueado = False
+            publicacion.save()
+        
+            if categoria_detectada:
+                try:
+                    cat_obj = Categoria.objects.get(nombre__iexact=categoria_detectada)
+                    publicacion.categorias.add(cat_obj)
+                except Categoria.DoesNotExist:
+                    pass
+
+            serializer = ArchivoSerializer(publicacion, context={'request': request})
+            return Response({
+                **serializer.data,
+                'categoria_auto': categoria_detectada,
+                'confianza_auto': confianza_detectada,
+                'bloqueado': False,
+            },status=200)
         
         return Response({'error': form.errors}, status=400)
+    
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def apelar_bloqueo(request, archivo_id):
+    try:
+        bloquear = ContenidoBloqueado.objects.get(
+            archivo_id=archivo_id,
+            usuario=request.user,
+            estado='bloqueado'
+        )
+    except ContenidoBloqueado.DoesNotExist:
+        return Response({'error': 'No se encontró una publicación bloqueada para apelar'}, status=404)
+    
+    bloquear.estado = 'apelada'
+    bloquear.save()
+
+    return Response({'message': 'Tu apelación ha sido enviada. Nuestro equipo revisará tu caso.'}, status=200)
     
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
