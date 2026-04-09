@@ -41,6 +41,7 @@ from rest_framework.generics import ListAPIView
 
 from .ml import analizar_comentario
 from .clasificador_imagen import clasificar_imagen
+from .clasificador_imagen import clasificar_video
 from django.core.cache import cache
 import pandas as pd
 
@@ -279,42 +280,48 @@ def simple_uploud(request):
             es_imagen = False
 
             if tiene_archivo:
-                archivo_subido = request.FILES['archivo']
-                tipo = archivo_subido.content_type or ''
+                tipo = request.FILES.get('archivo') and request.FILES['archivo'].content_type or ''
                 es_imagen = tipo.startswith('image/')
+                es_video = tipo.startswith('video/')
 
             form.instance.usuario = request.user
             publicacion = form.save(commit=False)
 
-            if es_imagen:
+            if es_video:
+                publicacion.save()
+                resultado = clasificar_video(publicacion.archivo.path)
+            elif es_imagen:
                 resultado = clasificar_imagen(request.FILES['archivo'])
+            else:
+                resultado = None
 
-                if resultado and resultado['confianza_suficiente']:
-                    categoria_detectada = resultado['categoria']
-                    confianza_detectada = resultado['confianza']
+            if resultado and resultado['confianza_suficiente']:
+                categoria_detectada = resultado['categoria']
+                confianza_detectada = resultado['confianza']
 
-                    if resultado['es_moderada']:
-                        form.instance.usuario = request.user
-                        form.instance.bloqueado = True
-                        publicacion.save()
+                if resultado and resultado['es_moderada']:
+                    form.instance.usuario = request.user
+                    form.instance.bloqueado = True
+                    publicacion.save()
 
-                        ContenidoBloqueado.objects.create(
-                            archivo=publicacion,
-                            usuario = request.user,
-                            categoria_modelo = categoria_detectada,
-                            confianza = confianza_detectada,
-                            estado = 'bloqueado',
-                        )
+                    ContenidoBloqueado.objects.create(
+                        archivo=publicacion,
+                        usuario = request.user,
+                        categoria_modelo = categoria_detectada,
+                        confianza = confianza_detectada,
+                        estado = 'bloqueado',
+                    )
 
-                        return Response({
-                            'bloqueado': True,
-                            'mensaje': ('Tu publicación ha sido bloqueada por contener contenido inapropiado','Puedes apelar esta decisión contactando con soporte.'),
-                            'categoria_detectada': categoria_detectada,
-                            'confianza': confianza_detectada,
-                        },status=200)
-                    
-            publicacion.bloqueado = False
-            publicacion.save()
+                    return Response({
+                        'bloqueado': True,
+                        'mensaje': ('Tu publicación ha sido bloqueada por contener contenido inapropiado','Puedes apelar esta decisión contactando con soporte.'),
+                        'categoria_detectada': categoria_detectada,
+                        'confianza': confianza_detectada,
+                    },status=200)
+            
+            if not es_video:
+                publicacion.bloqueado = False
+                publicacion.save()
         
             if categoria_detectada:
                 try:

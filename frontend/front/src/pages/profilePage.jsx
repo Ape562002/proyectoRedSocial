@@ -286,7 +286,7 @@ export function Profile(){
                 <input type="file" name="archivo" onChange={(e) => setArchivo(e.target.files[0])}/>
                 <button
                     onClick={() => {
-                        if (archivo && archivo.type.startsWith('image/')) {
+                        if (archivo && (archivo.type.startsWith('image/') || archivo.type.startsWith('video/'))) {
                             publicar()
                         } else {
                             setModelAbierto(true)
@@ -345,16 +345,20 @@ export function Profile(){
                         {post.bloqueado === true ? (
                             <div className="bloqueadoOverlay">
                                 <p>Contenido bloqueado por violar las normas comunitarias.</p>
+                                <button onClick={() => apelarBloqueo(post.id)}>
+                                    Apelar decisión
+                                </button>
                             </div>
                         ) : (
                             <>
                                 {post.formato === "jpg" && (
                                     <img src={post.archivo} alt="Archivo adjunto" className="postImage"/>
                                 )}
+                            
+                                {post.formato === "mp4" && (
+                                    <video controls src={post.archivo} className="postImage"/>
+                                )}
                             </>
-                        )}
-                        {post.formato === "mp4" && (
-                            <video controls src={post.archivo} className="postImage"/>
                         )}
                         {post.formato === "NaN" && null}
 
