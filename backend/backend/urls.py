@@ -9,6 +9,7 @@ from app.views import ToggleLikeView
 urlpatterns = [
     path('admin/tendencias/', views.panel_tendencias, name='panel_tendencias'),
     path('admin/moderacion/', views.panel_moderacion, name='panel_moderacion'),
+    path('admin/moderacion/<int:bloqueo_id>/revisar/', views.revisar_bloqueo,  name='revisar_bloqueo'),
     path('admin/', admin.site.urls),
     path('login/', views.LoginView.as_view()),
     path('resgister/', views.RegisterView.as_view()),

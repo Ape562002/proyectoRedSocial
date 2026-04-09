@@ -112,7 +112,7 @@ def panel_tendencias(request):
 
 @staff_member_required
 def panel_moderacion(request):
-    estado_activo = request.GET.get('estado', '')
+    estado_activo = request.GET.get('estado', 'apelado')
 
     bloques = ContenidoBloqueado.objects.select_related('archivo', 'usuario', 'revisado_por')
 
@@ -135,16 +135,16 @@ def panel_moderacion(request):
 @staff_member_required
 def revisar_bloqueo(request, bloqueo_id):
     bloqueo = get_object_or_404(ContenidoBloqueado, id=bloqueo_id)
-    accion = request.POST.get('accion')
-
+    accion  = request.POST.get('accion')
+ 
     if accion == 'restaurar':
-        bloqueo.estado = 'restaurado'
+        bloqueo.estado            = 'restaurado'
         bloqueo.archivo.bloqueado = False
         bloqueo.archivo.save(update_fields=['bloqueado'])
     elif accion == 'confirmar':
         bloqueo.estado = 'confirmado'
-
-    bloqueo.revisado_por = request.user
+ 
+    bloqueo.revisado_por   = request.user
     bloqueo.fecha_revision = timezone.now()
     bloqueo.save()
 
@@ -353,7 +353,7 @@ def apelar_bloqueo(request, archivo_id):
     except ContenidoBloqueado.DoesNotExist:
         return Response({'error': 'No se encontró una publicación bloqueada para apelar'}, status=404)
     
-    bloquear.estado = 'apelada'
+    bloquear.estado = 'apelado'
     bloquear.save()
 
     return Response({'message': 'Tu apelación ha sido enviada. Nuestro equipo revisará tu caso.'}, status=200)
